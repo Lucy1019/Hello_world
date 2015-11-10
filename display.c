@@ -19,18 +19,19 @@ static void SDL_Fail(char *s);
 static void loadImage(display *d, int what, char *filename);
 static void loadAllImages(display *d);
 void QuitGame(display *d);
-
+int getEvent(display *d);
 int main(void)
 {
-    
+
     display *d=malloc(sizeof(display));
     d->height=600;
     d->width=400;
-    
+
     /*Did not initialise these because the size was not working*/
     /*int h=d->height*8;
     int w=d->width*9;
     */
+    int i,j,stop=0;
     int result=SDL_Init(SDL_INIT_VIDEO);
     if (result<0) {
         SDL_Fail("Bad SDL");
@@ -45,20 +46,55 @@ int main(void)
     }
     loadAllImages(d);
     d->event=malloc(sizeof(SDL_Event));
-    /*drawEnity(d,3,0,0);
+    drawEnity(d,3,150,150);
     drawFrame(d);
-    SDL_FreeSurface(d->surface);*/
+   if (getEvent(d)){
+    SDL_FreeSurface(d->surface);
+  }
+while (!stop){
+  i=0,j=300;
+  while((i<300 || j>0) && !stop){
     drawEnity( d,1, 0, 0);
-    drawEnity( d,2, 0, 150);
+    if (i<300){
+      drawEnity( d,2, i, 150);
+      i++;
+    }
+    else if (j>0){
+      drawEnity( d,2, j, 150);
+      j--;
+    }
+
     drawFrame(d);
+   if(getEvent(d)){
+      stop=1;
+   }
+  }
+}
     QuitGame(d);
     free(d);
     free(d->event);
     return 0;
 }
 
+// Check for the quit event, return true if detected
+int getEvent(display *d) {
+SDL_Event *event=d->event;
+  while (1){
+    int r=SDL_WaitEvent(event);
+    if (r==0) return 0;
 
+    int type = d->event->type;
+    if (type==SDL_QUIT){
+      return 1;
+    }
+    else if (type==SDL_KEYUP) {
+      return 1;
+    }
+  /*  if (type != SDL_QUIT) return 0;*/
+    return 0;
+  }
 
+}
 static void loadImage(display *d, int what, char *filename){
     /* char path[100];*/
     /*  strcpy(filename);*/
@@ -72,7 +108,7 @@ static void loadImage(display *d, int what, char *filename){
     if (image->h!=d->imageheight) {
         SDL_Fail("Bad image size");
     }
-    
+
     d->image[what]=image;
 }
 
@@ -83,6 +119,7 @@ static void loadAllImages(display *d){
 }
 
 void drawFrame(display *d){
+  SDL_Delay(20 - SDL_GetTicks() % 20);
     int r=SDL_UpdateWindowSurface(d->window);
     if (r<0) {
         SDL_Fail("Bad window repaint");
@@ -100,12 +137,12 @@ void drawEnity( display *d,int what,int x, int y){
     int py=y*d->imageheight;
     int h=d->height*8;
     int w=d->width*9;
-    
+
     SDL_Surface *image=d->image[what];
     if (image==NULL) {
         SDL_Fail("No image");
     }
-    
+
     SDL_Rect box_structure={x,y,d->imagewidth,d->imageheight};
     SDL_Rect *box=&box_structure;
     int r=SDL_BlitSurface(image,NULL,d->surface,box);
