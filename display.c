@@ -36,7 +36,7 @@ int main(void)
     if (result<0) {
         SDL_Fail("Bad SDL");
     }
-    d->window=SDL_CreateWindow("niconiconi", SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED, 600, 400,SDL_WINDOW_SHOWN);
+    d->window=SDL_CreateWindow("Diner 51", SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED, 600, 400,SDL_WINDOW_SHOWN);
     if (d->window==NULL) {
         SDL_Fail("Could not create window");
     }
