@@ -24,8 +24,8 @@ int main(void)
 {
 
     display *d=malloc(sizeof(display));
-    d->height=600;
-    d->width=400;
+    d->height=420;
+    d->width=1040;
 
     /*Did not initialise these because the size was not working*/
     /*int h=d->height*8;
@@ -36,7 +36,7 @@ int main(void)
     if (result<0) {
         SDL_Fail("Bad SDL");
     }
-    d->window=SDL_CreateWindow("Diner 51", SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED, 600, 400,SDL_WINDOW_SHOWN);
+    d->window=SDL_CreateWindow("Diner 51", SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED, 1040, 420,SDL_WINDOW_SHOWN);
     if (d->window==NULL) {
         SDL_Fail("Could not create window");
     }
@@ -79,8 +79,8 @@ while (!stop){
 // Check for the quit event, return true if detected
 int getEvent(display *d) {
 SDL_Event *event=d->event;
-  while (1){
-    int r=SDL_WaitEvent(event);
+  
+    int r=SDL_PollEvent(event);
     if (r==0) return 0;
 
     int type = d->event->type;
@@ -94,7 +94,7 @@ SDL_Event *event=d->event;
     return 0;
   }
 
-}
+
 static void loadImage(display *d, int what, char *filename){
     /* char path[100];*/
     /*  strcpy(filename);*/
@@ -113,8 +113,8 @@ static void loadImage(display *d, int what, char *filename){
 }
 
 static void loadAllImages(display *d){
-    loadImage(d,1,"Restuarant.bmp");
-    loadImage(d,2,"ball.bmp");
+    loadImage(d,1,"GAMESCREEN.bmp");
+    loadImage(d,2,"Orange Alien.bmp");
     loadImage(d,3,"image.bmp");
 }
 
@@ -128,7 +128,7 @@ void drawFrame(display *d){
 }
 
 void QuitGame(display *d){
-    SDL_Delay(15000);
+    
     SDL_Quit();
 }
 
@@ -156,3 +156,7 @@ static void SDL_Fail(char *s) {
     SDL_Quit();
     exit(1);
 }
+
+
+
+
