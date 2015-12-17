@@ -9,11 +9,7 @@ struct display {
     SDL_Renderer *renderer;
     SDL_Texture *background;
     SDL_Texture *texture;
-    TTF_Font *font;
-    Uint32 red;
-    SDL_Color bg, fg;
-    SDL_Rect rectangle;
-    SDL_Surface *image[128];
+
     SDL_Event *event;
     SDL_Rect *box;
 };
@@ -26,8 +22,8 @@ struct Button {
 
 static void SDL_Fail(char *s, display *d);
 
-Button *createButton(int x, int y, int w, int h, char *message) {
-    Button *button = malloc(sizeof(Button));
+Button *createButton(int x, int y
+Button *button = malloc(sizeof(Button));
     button->rectangle.x = x;
     button->rectangle.y = y;
     button->rectangle.w = w;
