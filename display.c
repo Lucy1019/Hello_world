@@ -9,11 +9,7 @@ struct display {
     SDL_Renderer *renderer;
     SDL_Texture *background;
     SDL_Texture *texture;
-    TTF_Font *font;
-    Uint32 red;
-    SDL_Color bg, fg;
-    SDL_Rect rectangle;
-    SDL_Surface *image[128];
+
     SDL_Event *event;
     SDL_Rect *box;
 };
@@ -26,8 +22,8 @@ struct Button {
 
 static void SDL_Fail(char *s, display *d);
 
-Button *createButton(int x, int y, int w, int h, char *message) {
-    Button *button = malloc(sizeof(Button));
+Button *createButton(int x, int y
+Button *button = malloc(sizeof(Button));
     button->rectangle.x = x;
     button->rectangle.y = y;
     button->rectangle.w = w;
@@ -44,8 +40,8 @@ display *newDisplay()
     display *d = malloc(sizeof(display));
     result = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 
-    if (result < 0) {
-        SDL_Fail("Bad SDL", d);
+    if (result < 1) {
+        SDL_Fail("Badasdasdadachange ----- SDL", d);
     }
     d->window = SDL_CreateWindow("Diner 51", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1000, 700, SDL_WINDOW_SHOWN);//frame dimenstion
     if (d->window == NULL) {
