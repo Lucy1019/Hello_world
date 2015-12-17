@@ -1,215 +1,285 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <time.h>
-#include <SDL2/SDL.h>
+#include "display.h"
 
+Mix_Music *gMusic = NULL;
+bool ctrl_pressed;
 
-struct display{
-    int height,width,imagewidth, imageheight;
+struct display {
     SDL_Surface *surface;
     SDL_Window *window;
+    SDL_Renderer *renderer;
+    SDL_Texture *background;
+    SDL_Texture *texture;
+    TTF_Font *font;
+    Uint32 red;
+    SDL_Color bg, fg;
     SDL_Rect rectangle;
     SDL_Surface *image[128];
     SDL_Event *event;
+    SDL_Rect *box;
 };
 
-struct Button{
+struct Button {
     SDL_Rect rectangle;
     SDL_Surface *image;
     char message[255];
 };
-struct Button createButton(int x, int y, int w, int h, char *message){
-  struct Button button;
-  button.rectangle.x = 1000;
-  button.rectangle.y = 300;
-  button.rectangle.w = 50;
-  button.rectangle.h = 20;
-  strcpy(button.message, message);
 
-  return button;
+static void SDL_Fail(char *s, display *d);
 
+Button *createButton(int x, int y, int w, int h, char *message) {
+    Button *button = malloc(sizeof(Button));
+    button->rectangle.x = x;
+    button->rectangle.y = y;
+    button->rectangle.w = w;
+    button->rectangle.h = h;
+    strcpy(button->message, message);
+    return button;
 }
 
-typedef struct display display;
-
-void drawEnity(display *d,int what,int x, int y);
-void drawFrame(display *d);
-static void SDL_Fail(char *s);
-static void loadImage(display *d, int what, char *filename);
 static void loadAllImages(display *d);
-void QuitGame();
-int getEvent(display *d,struct Button buttons);
-int is_point_in_rect (int x, int y, SDL_Rect *rectangle);
 
-
-int main(void)
+display *newDisplay()
 {
-  struct Button buttons;
-  display *d=malloc(sizeof(display));
+    int result;
+    display *d = malloc(sizeof(display));
+    result = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 
-   buttons = createButton(200, 200, 40, 40,"WORKS");
-   d->rectangle.x = 100;
-   d->rectangle.y = 100;
-    d->height=420;
-    d->width=1040;
+    if (result < 0) {
+        SDL_Fail("Bad SDL", d);
+    }
+    d->window = SDL_CreateWindow("Diner 51", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1000, 700, SDL_WINDOW_SHOWN);//frame dimenstion
+    if (d->window == NULL) {
+        SDL_Fail("Could not create window", d);
+    }
+    //MUSIC-------------
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2040) < 0) {
+        Mix_GetError();
+        SDL_Fail("SDL Mixer could not initialise", d);
+    }
+    gMusic = Mix_LoadMUS("DINER51_SONG01.wav");
+    if (gMusic == NULL) {
+        SDL_Fail("Music oad failed", d);
+    }
+    Mix_PlayMusic(gMusic, -1);
+    d->surface = SDL_GetWindowSurface(d->window);
+    if (d->surface == NULL) {
+        SDL_Fail("Could not create surface", d);
+    }
+    d->red = SDL_MapRGB(d->surface->format, 102, 0, 0);
+    d->box = malloc(sizeof(SDL_Rect));
+    *d->box = (SDL_Rect) { 0, 0, 32, 32 };
+    d->renderer = SDL_CreateRenderer(d->window, -1, 0);
 
-    /*Did not initialise these because the size was not working*/
-    /*int h=d->height*8;
-    int w=d->width*9;
-    */
-    int i,j,stop=0,leave=0,which_alien;
-    int result=SDL_Init(SDL_INIT_VIDEO);
-    if (result<0) {
-        SDL_Fail("Bad SDL");
-    }
-    d->window=SDL_CreateWindow("Diner 51", SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED, 1040, 420,SDL_WINDOW_SHOWN);
-    if (d->window==NULL) {
-        SDL_Fail("Could not create window");
-    }
-    d->surface=SDL_GetWindowSurface(d->window);
-    if (d->surface==NULL) {
-        SDL_Fail("Could not create surface");
-    }
     loadAllImages(d);
-    d->event=malloc(sizeof(SDL_Event));
-    srand(time(NULL));
-    drawEnity( d,0, 0, 0);
-while (!stop){
-  i=420,j=230;
-  which_alien=rand()%4+1;
- while((i>230 || j<420) && !stop){
-   drawEnity( d,0, 0, 0);
-   if (getEvent(d,buttons)==2){
-     leave=1;
-   }
-    if (i>230){
-    drawEnity( d,which_alien, 300, i);
-      i--;
-      leave=0;
+    //event control
+    d->event = malloc(sizeof(SDL_Event));
+    //TTF
+    TTF_Init();
+    d->font = TTF_OpenFont("Code.ttf", 24);
+    if (d->font == NULL) {
+        SDL_Fail("Bad font", d);
     }
-    if (leave==0 && i==230) {
-      drawEnity( d,which_alien, 300,230);
-  }
-      if (j<420 && leave ==1){
-      drawEnity( d,which_alien, 300, j);
-      j++;
-    }
-   SDL_FillRect(SDL_GetWindowSurface(d->window),&buttons.rectangle,150);
-   drawFrame(d);
-   if(getEvent(d,buttons)==1){
-      stop=1;
-   }
-}
-}
-    QuitGame();
-
-    return 0;
+    d->bg = (SDL_Color) { 253, 205, 146, 255 };
+    d->fg = (SDL_Color) { 0, 0, 0, 255 };
+    SDL_StartTextInput();
+    SDL_RenderClear(d->renderer);
+    return d;
 }
 
-// Check for the quit event, return true if detected
-int getEvent(display *d,struct Button buttons) {
-  int what=0;
-    SDL_PollEvent(d->event);
-    switch(d->event->type){
-                case SDL_MOUSEBUTTONDOWN:{
-                    if(is_point_in_rect(d->event->button.x,d->event->button.y, &buttons.rectangle)){
-                          what=2;
+int is_point_in_rect(int x, int y, SDL_Rect *rectangle)
+{
+    if (x < rectangle->x) {
+        return 0;
+    }
+    if (y < rectangle->y) {
+        return 0;
+    }
+    if (x > rectangle->x + rectangle->w) {
+        return 0;
+    }
+    if (y > rectangle->y + rectangle->h) {
+        return 0;
+    }
+    return 1;
+}
+
+/* Check for the quit event, return true if detected*/
+char getEvent(display *d, Button *buttons[NUM_BUTTONS])
+{
+    char what = NONE;
+    int sym;
+    //avoid repeating inputs ---------------------
+    while (SDL_PollEvent(d->event) != 0) {
+        switch (d->event->type) {
+        case SDL_QUIT: {
+            what = QUIT;
+            break;
+        }
+        case  SDL_TEXTINPUT: {
+            if ((what != CLICK1) && (what != HINT)) {
+                what = d->event->text.text[0];
+                printf("ordinary character form keyboard %c\n", what);
+                fflush(stdout);
+                break;
+            }
+        }
+        case SDL_KEYDOWN: {
+
+            sym = d->event->key.keysym.sym;
+            if (sym == ENTER) {
+                what = (char)sym;
+            }
+            else if ((sym == SDLK_LCTRL) || (sym == SDLK_RCTRL)) {
+                ctrl_pressed = true; //ctrl part--------------
+            }
+            else if (ctrl_pressed) {
+                if (sym == MUTE) {
+                    if (Mix_PausedMusic() == true) {
+                        Mix_ResumeMusic();
                     }
-                  break;
+                    else {
+                        Mix_PauseMusic();
+                    }
                 }
-                case SDL_QUIT:{
-                  /* SDL_Quit() takes no arguments, and should be called at the end
-                     of your program, and it just undoes whatever SDL_Init has done.
-                     In theory, nothing bad will happen if you don't, but better to
-                     be safe than sorry! */
-                  what=1;
-                  break;
-
+                if (sym == SDLK_q) {
+                    what = QUIT;
                 }
-                case SDL_KEYDOWN:{
-                  what=1;
-                  break;
-              }
-         }
-         return what;
-
-}
-
-  int is_point_in_rect (int x, int y, SDL_Rect *rectangle){
-           if(x < rectangle->x){
-             return 0;
-           }
-           if(y < rectangle->y){
-             return 0;
-           }
-           if(x > rectangle->x + rectangle->w){
-             return 0;
-           }
-           if(y > rectangle->y + rectangle->h){
-             return 0;
-           }
-           return 1;
-         }
-
-static void loadImage(display *d, int what, char *filename){
-    /* char path[100];*/
-    /*  strcpy(filename);*/
-    SDL_Surface *image=SDL_LoadBMP(filename);
-    if (image==NULL) {
-        SDL_Fail("Bad image file");
+                ctrl_pressed = false;
+            }
+            else if (sym == BS || sym == TAB || sym == ENTER || sym == DEL) what = (char)sym;
+            else if (sym == SDLK_UP) what = (char)UP;
+            else if (sym == SDLK_DOWN) what = (char)DOWN;
+            else if (sym == SDLK_LEFT) what = (char)LEFT;
+            else if (sym == SDLK_RIGHT) what = (char)RIGHT;
+            if (what != NONE) printf("special character form keyboard %c\n", sym);
+            fflush(stdout);
+            break;
+        }
+        case SDL_MOUSEBUTTONDOWN: {
+            printf("in mouse %d  %d\n", d->event->button.x, d->event->button.y);
+            fflush(stdout);
+            if (is_point_in_rect(d->event->button.x, d->event->button.y, &buttons[0]->rectangle)) {
+                what = CLICK1;
+            }
+            else if (is_point_in_rect(d->event->button.x, d->event->button.y, &buttons[1]->rectangle)) {
+                what = HINT;
+            }
+            break;
+        }
+        }
     }
-    /*if (image->w!=d->imagewidth) {
-        SDL_Fail("Bad image size");
+    return what;
+}
+
+
+static void loadImage(display *d, int what, char *filename)
+{
+    SDL_Surface *image = SDL_LoadBMP(filename);
+    if (image == NULL) {
+        SDL_Fail("Bad image file", d);
     }
-    if (image->h!=d->imageheight) {
-        SDL_Fail("Bad image size");
-    }*/
-
-    d->image[what]=image;
+    d->image[what] = image;
 }
 
-static void loadAllImages(display *d){
-    loadImage(d,0,"GAMESCREEN.bmp");
-    loadImage(d,1,"Orange Alien.bmp");
-    loadImage(d,2,"image.bmp");
-    loadImage(d,3,"Purple Alien.bmp");
-    loadImage(d,4,"ball.bmp");
+static void loadAllImages(display *d) {
+
+    loadImage(d, 0, "gamescreen2.0.bmp");
+    loadImage(d, 1, "Orange Alien.bmp");
+    loadImage(d, 2, "image.bmp");
+    loadImage(d, 3, "Purple Alien.bmp");
+    loadImage(d, 4, "ball.bmp");
+    loadImage(d, 5, "hello_world.bmp");
+    loadImage(d, 6, "ball.bmp");
+    loadImage(d, 7, "purplealienhint.bmp");
+    loadImage(d, 8, "image.bmp");
+    loadImage(d, 9, "JukeBox_Off.bmp");
 }
 
-void drawFrame(display *d){
-  SDL_Delay(10 - SDL_GetTicks() % 10);
-    int r=SDL_UpdateWindowSurface(d->window);
-    if (r<0) {
-        SDL_Fail("Bad window repaint");
+void drawFrame(display *d, Button *buttons[NUM_BUTTONS])
+{
+    int r;
+    SDL_Delay(10 - SDL_GetTicks() % 10);
+    printf("frmae\n\n");
+    fflush(stdout);
+    r = SDL_UpdateWindowSurface(d->window);
+    SDL_FillRect(SDL_GetWindowSurface(d->window), &buttons[0]->rectangle, 150);
+
+    if (r < 0) {
+        SDL_Fail("Bad window repaint", d);
         SDL_Delay(20);
     }
 }
 
-void QuitGame(){
-
-    SDL_Quit();
+void delayUntilNextAlien(int t)
+{
+    SDL_Delay(t);
 }
 
-void drawEnity( display *d,int what,int x, int y){
-
-    SDL_Surface *image=d->image[what];
-    if (image==NULL) {
-        SDL_Fail("No image");
+void drawEnity(display *d, int what, int x, int y)
+{
+    int r;
+    SDL_Surface *image = d->image[what];
+    SDL_Rect box_structure = { x,y,0,0 };
+    SDL_Rect *box = &box_structure;
+    if (image == NULL) {
+        SDL_Fail("No image", d);
+    }
+    r = SDL_BlitSurface(image, NULL, d->surface, box);
+    if (r < 0) {
+        SDL_Fail("Bad image display", d);
     }
 
-    SDL_Rect box_structure={x,y,0,0};
-    SDL_Rect *box=&box_structure;
-    int r=SDL_BlitSurface(image,NULL,d->surface,box);
-    if (r<0) {
-        SDL_Fail("Bad image display");
+}
+
+void writeTextToSurface(display *d, char *message, int r, int g, int b)
+{
+    SDL_Surface *text;
+    SDL_Color text_color = { r, g, b, SDL_ALPHA_OPAQUE };
+    text = TTF_RenderText_Solid(d->font, message, text_color);
+    if (text == NULL) {
+        SDL_Fail("TTF_RenderText_Solid() Failed", d);
     }
 }
 
-static void SDL_Fail(char *s) {
-    fprintf(stderr,"%s %s \n",s,SDL_GetError());
-    QuitGame();
+static void SDL_Fail(char *s, display *d) {
+    fprintf(stderr, "%s %s \n", s, SDL_GetError());
+    fflush(stdout);
+    QuitGame(d);
     exit(1);
 }
 
+/* SDL_Quit() takes no arguments, and should be called at the end
+ of your program, and it just undoes whatever SDL_Init has done.
+In theory, nothing bad will happen if you don't, but better to
+be safe than sorry! */
+void QuitGame(display *d)
+{
+    Mix_HaltMusic();
+    Mix_CloseAudio();
+    TTF_Quit();
+    SDL_DestroyWindow(d->window);
+    free(d);
+    SDL_Quit();
+}
+// Draw one row of the text area, passed as a string with a null on the end
+static void drawLine(display *d, int r, char s[COLS + 1]) {
+    int z;
+    SDL_Surface *text = TTF_RenderText_Shaded(d->font, s, d->fg, d->bg);
+    int pr = 525 + r * text->h;
+    *d->box = (SDL_Rect) { 760, pr, text->h, text->w }; 
+    z = SDL_BlitSurface(text, NULL, d->surface, d->box);
+    if (z < 0) SDL_Fail("Bad text display", d);
+    SDL_FreeSurface(text);
+}
 
-
+void drawGrid(display *d, Text s, int cr, int cc) {
+    char line[COLS + 1];
+    for (int r = 0; r < ROWS; r++) {
+        strncpy(line, s[r], COLS);
+        line[COLS] = '\0';
+        drawLine(d, r, line);
+    }
+    *d->box = (SDL_Rect) { 760 + 14 * cc - 1, 525 + 31 * cr + 2, 2, 31 - 2 }; // h,w,x,y  ----------- Change
+    int z = SDL_FillRect(d->surface, d->box, d->red);
+    if (z < 0) SDL_Fail("Bad cursor display", d);
+}
